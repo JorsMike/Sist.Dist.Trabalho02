@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta CEP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(to left, #42275a, #734b6d);
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            border: 1px solid #ddd;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            border-radius: 8px;
+        }
+        .consultas, .resultados {
+            margin-bottom: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        input {
+            width: 50%;
+            padding: 8px;
+            margin-bottom: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <section class="consultas">
+            <h1>Consultas</h1>
+            <input type="text" id="cepInput" placeholder="10101000" maxlength="8">
+            <div class="buttons">
+                <button id="clear">Limpar</button>
+            </div>
+        </section>
+        <section class="resultados">
+            <h1>Resultados</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>CEP</th>
+                        <th>Logradouro</th>
+                        <th>Complemento</th>
+                        <th>Unidade</th>
+                        <th>Bairro</th>
+                        <th>Localidade</th>
+                        <th>UF</th>
+                        <th>Estado</th>
+                        <th>Região</th>
+                        <th>IBGE</th>
+                        <th>GIA</th>
+                        <th>DDD</th>
+                        <th>SIAFI</th>
+                    </tr>
+                </thead>
+                <tbody id="resultadosTabela">
+                    <tr>
+                        <td>1</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+    <script>
+        document.getElementById('cepInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                atualizarDados();
+            }
+        });
+
+        document.getElementById('clear').addEventListener('click', function() {
+            limparDados();
+        });
+
+        function limparDados() {
+            document.getElementById('cepInput').value = '';
+            document.getElementById('resultadosTabela').innerHTML = `
+                <tr>
+                    <td>1</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>`;
+        }
+
+        async function atualizarDados() {
+            var cep = document.getElementById('cepInput').value;
+            if (validarCEP(cep)) {
+                // Utilizando threads para fazer a requisição de forma assíncrona e não bloquear a UI
+                new Promise((resolve, reject) => {
+                    setTimeout(async () => {
+                        try {
+                            let response = await fetch(`https://viacep.com.br/ws/${cep}/xml/`);
+                            if (!response.ok) {
+                                throw new Error('Formato de CEP inválido');
+                            }
+                            let data = await response.text();
+                            let parser = new DOMParser();
+                            let xml = parser.parseFromString(data, 'application/xml');
+                            if (xml.getElementsByTagName('erro').length > 0) {
+                                throw new Error('CEP não encontrado');
+                            }
+                            resolve(xml);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }, 0);
+                }).then((xml) => {
+                    atualizarTabela(xml);
+                }).catch((error) => {
+                    console.error(error);
+                });
+            } else {
+                alert('Por favor, insira um CEP válido de 8 dígitos.');
+            }
+        }
+
+        function validarCEP(cep) {
+            return /^[0-9]{8}$/.test(cep);
+        }
+
+        function atualizarTabela(xml) {
+            // Extraindo os dados do XML
+            let cep = xml.getElementsByTagName('cep')[0].textContent;
+            let logradouro = xml.getElementsByTagName('logradouro')[0].textContent;
+            let complemento = xml.getElementsByTagName('complemento')[0].textContent || '-';
+            let unidade = xml.getElementsByTagName('unidade')[0].textContent || '-';
+            let bairro = xml.getElementsByTagName('bairro')[0].textContent;
+            let localidade = xml.getElementsByTagName('localidade')[0].textContent;
+            let uf = xml.getElementsByTagName('uf')[0].textContent;
+            let ibge = xml.getElementsByTagName('ibge')[0].textContent;
+            let gia = xml.getElementsByTagName('gia')[0].textContent || '-';
+            let ddd = xml.getElementsByTagName('ddd')[0].textContent;
+            let siafi = xml.getElementsByTagName('siafi')[0].textContent || '-';
+
+            // Atualizando a tabela com os dados extraídos
+            document.getElementById('resultadosTabela').innerHTML = `
+                <tr>
+                    <td>1</td>
+                    <td>${cep}</td>
+                    <td>${logradouro}</td>
+                    <td>${complemento}</td>
+                    <td>${unidade}</td>
+                    <td>${bairro}</td>
+                    <td>${localidade}</td>
+                    <td>${uf}</td>
+                    <td>${uf}</td>
+                    <td>-</td>
+                    <td>${ibge}</td>
+                    <td>${gia}</td>
+                    <td>${ddd}</td>
+                    <td>${siafi}</td>
+                </tr>`;
+        }
+    </script>
+</body>
+</html>
